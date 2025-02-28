@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Subir y Filtrar Excel</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        /* Estilo para la franja superior */
+        #topBar {
+            background-color: #FF5722; /* Naranja oscuro */
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #topBar button {
+            background-color: #333; /* Gris oscuro */
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 0 10px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+        }
+
+        #topBar button:hover {
+            background-color: #FF5722; /* Naranja oscuro */
+        }
+
+        /* Estilo del menú lateral */
+        #sidebar {
+            height: 100%;
+            width: 250px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            background-color: #333; /* Gris oscuro */
+            padding-top: 20px;
+            box-shadow: 2px 0px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #sidebar a {
+            padding: 15px 20px;
+            text-decoration: none;
+            font-size: 18px;
+            color: white;
+            display: block;
+            border-bottom: 1px solid #555;
+        }
+
+        #sidebar a:hover {
+            background-color: #FF5722; /* Naranja oscuro */
+        }
+
+        /* Contenido principal */
+        #mainContent {
+            margin-left: 270px;
+            padding: 30px;
+            font-family: 'Arial', sans-serif;
+            background-color: #F4F4F4; /* Gris claro */
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            display: none; /* Oculto hasta iniciar sesión */
+        }
+
+        #fileInput {
+            display: none; /* Ocultar el input de archivo para Agente */
+        }
+
+        /* Estilo de la pantalla de inicio (login) */
+        #loginScreen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #F4F4F4; /* Gris claro */
+        }
+
+        #loginForm {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        #loginForm input,
+        #loginForm select {
+            padding: 10px;
+            margin: 10px 0;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        #loginForm button {
+            background-color: #FF5722; /* Naranja oscuro */
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+            width: 100%;
+        }
+
+        #loginForm button:hover {
+            background-color: #E64A19; /* Naranja más oscuro */
+        }
+
+        /* Estilo de la tabla */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+        }
+
+        table th, table td {
+            padding: 12px;
+            text-align: center;
+            border: 1px solid #ddd;
+            font-size: 16px;
+        }
+
+        table th {
+            background-color: #FF5722; /* Naranja oscuro */
+            color: white;
+        }
+
+        table td {
+            background-color: #fff;
+        }
+
+        table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        table tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        /* Filtros */
+        select, input[type="date"] {
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+
+        /* Botones de navegación en Modo Gestión */
+        #gestionNavigation {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #gestionNavigation button {
+            padding: 10px 20px;
+            background-color: #FF5722;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px;
+            margin: 0 10px;
+        }
+
+        #gestionNavigation button:hover {
+            background-color: #E64A19; /* Naranja más oscuro */
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Pantalla de inicio (login) -->
+    <div id="loginScreen">
+        <div id="loginForm">
+            <h2>Iniciar sesión</h2>
+            <input type="text" id="username" placeholder="Usuario" required>
+            <input type="password" id="password" placeholder="Contraseña" required>
+
+            <!-- Selector de rol -->
+            <select id="userRoleSelect">
+                <option value="">Seleccionar Rol</option>
+                <option value="Supervisor">Supervisor</option>
+                <option value="Agente">Agente</option>
+            </select>
+            
+            <button onclick="login()">Iniciar sesión</button>
+        </div>
+    </div>
+
+    <!-- Franja superior con botones (visible después de iniciar sesión) -->
+    <div id="topBar" style="display:none;">
+        <button onclick="showPromesas()">Mostrar Promesas del Mes</button>
+        <button onclick="toggleGestionMode()">Modo Gestión</button> <!-- Botón para activar Modo Gestión -->
+        <button onclick="logout()">Cerrar sesión</button> <!-- Botón de cerrar sesión -->
+    </div>
+
+    <!-- Menú lateral (visible después de iniciar sesión) -->
+    <div id="sidebar" style="display:none;">
+        <a href="javascript:void(0)" onclick="showData('gestiones')">Gestiones del Día</a>
+        <a href="javascript:void(0)" onclick="showData('promesas')">Promesas Vigentes</a>
+    </div>
+
+    <!-- Contenido principal (visible después de iniciar sesión) -->
+    <div id="mainContent">
+        <h2>Subir Archivo Excel y Filtrar Datos</h2>
+
+        <!-- Opción de subir archivo solo para Supervisor -->
+        <input type="file" id="fileInput" accept=".csv, .xls, .xlsx" onchange="handleFileUpload()">
+        <br>
+
+        <label for="agentFilter">Seleccionar Nombre del Agente:</label>
+        <select id="agentFilter" onchange="applyFilters()">
+            <option value="">--Seleccionar--</option>
+        </select>
+        <br>
+        <label for="resultFilter">Seleccionar Resultado:</label>
+        <select id="resultFilter" onchange="applyFilters()">
+            <option value="">--Seleccionar--</option>
+        </select>
+        <br>
+        <label for="reviewDateFilter">Seleccionar Fecha de Próxima Revisión:</label>
+        <input type="date" id="reviewDateFilter" onchange="applyFilters()">
+        <br>
+        
+        <!-- Botones para navegar en modo gestión -->
+        <div id="gestionNavigation" style="display:none;">
+            <button onclick="navigate(-1)">← Anterior</button>
+            <button onclick="navigate(1)">Siguiente →</button>
+        </div>
+
+        <table id="dataTable">
+            <thead id="tableHeader"></thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        let csvData = [];
+        let agentResults = [];
+        let currentIndex = 0;  // Para realizar la navegación uno por uno
+
+        let filterOption = null;
+        let userRole = '';  // Variable para almacenar el rol del usuario
+        let isGestionMode = false;  // Controla si está en modo gestión
+
+        // Función de inicio de sesión
+        function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const selectedRole = document.getElementById('userRoleSelect').value; // Obtener el rol seleccionado
+
+            if (username === 'admin' && password === '1234' && selectedRole) {  // Ejemplo de credenciales
+                userRole = selectedRole;
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('topBar').style.display = 'block';
+                document.getElementById('sidebar').style.display = 'block';
+                document.getElementById('mainContent').style.display = 'block';
+
+                setUserRole(userRole); // Asignar rol y mostrar permisos correspondientes
+            } else {
+                alert('Usuario, contraseña o rol incorrectos');
+            }
+        }
+
+        // Establecer el rol del usuario
+        function setUserRole(role) {
+            userRole = role;
+            alert('Rol seleccionado: ' + role);
+
+            if (role === 'Supervisor') {
+                document.getElementById('fileInput').style.display = 'block';  // Mostrar opción para subir archivo
+            } else {
+                document.getElementById('fileInput').style.display = 'none';  // Ocultar opción para subir archivo
+            }
+
+            applyFilters();
+        }
+
+        // Función para cerrar sesión
+        function logout() {
+            // Ocultar las secciones después de cerrar sesión
+            document.getElementById('topBar').style.display = 'none';
+            document.getElementById('sidebar').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'none';
+
+            // Mostrar la pantalla de login
+            document.getElementById('loginScreen').style.display = 'flex';
+
+            // Limpiar el rol del usuario
+            userRole = '';
+        }
+
+        // Función para activar/desactivar el modo gestión
+        function toggleGestionMode() {
+            isGestionMode = !isGestionMode;
+            document.getElementById('gestionNavigation').style.display = isGestionMode ? 'block' : 'none';
+            currentIndex = 0;  // Resetear el índice al iniciar el modo gestión
+            applyFilters();
+        }
+
+        // Función para navegar entre los resultados
+        function navigate(direction) {
+            currentIndex += direction;
+
+            if (currentIndex < 0) currentIndex = 0; // No permitir navegar antes del primer elemento
+            if (currentIndex >= agentResults.length) currentIndex = agentResults.length - 1; // No permitir navegar más allá del último elemento
+
+            displayData([agentResults[currentIndex]]);
+        }
+
+        // Función para manejar la carga del archivo
+        function handleFileUpload() {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            if (file.name.endsWith(".csv")) {
+                reader.onload = function(e) {
+                    const text = e.target.result;
+                    processCSV(text);
+                };
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: "array" });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                    processCSV(json);
+                };
+            }
+        }
+
+        // Función para procesar los datos CSV
+        function processCSV(data) {
+            if (typeof data === "string") {
+                data = data.split('\n').map(row => row.split(','));
+            }
+            csvData = data;
+            extractUniqueValues(data);
+        }
+
+        // Función para extraer los valores únicos de las columnas necesarias
+        function extractUniqueValues(data) {
+            if (!data.length) return;
+
+            const headers = data[0];
+            const agentIndex = headers.findIndex(header => header.toLowerCase().includes("nombre del agente"));
+            const resultIndex = headers.findIndex(header => header.toLowerCase().includes("resultado"));
+            const reviewDateIndex = headers.findIndex(header => header.toLowerCase().includes("fecha de próxima de revisión"));
+            const identityIndex = headers.findIndex(header => header.toLowerCase().includes("identidad"));
+            const clientNameIndex = headers.findIndex(header => header.toLowerCase().includes("nombre del cliente"));
+
+            if (agentIndex === -1 || resultIndex === -1 || reviewDateIndex === -1 || identityIndex === -1 || clientNameIndex === -1) {
+                alert('Una o más columnas necesarias no se encontraron');
+                return;
+            }
+
+            // Extraer solo los datos necesarios
+            agentResults = data.slice(1).map(row => ({
+                name: row[agentIndex]?.trim(),
+                result: row[resultIndex]?.trim(),
+                reviewDate: row[reviewDateIndex]?.trim(),
+                identity: row[identityIndex]?.trim() || 'Sin Identidad',
+                clientName: row[clientNameIndex]?.trim()
+            }));
+
+            populateFilters(); // Llenar los filtros con los datos
+            generateTableHeader(); // Generar los encabezados de la tabla
+            applyFilters(); // Aplicar los filtros con los datos actuales
+        }
+
+        // Función para generar los encabezados de la tabla
+        function generateTableHeader() {
+            const tableHeader = document.getElementById('tableHeader');
+            tableHeader.innerHTML = ''; // Limpiar encabezado actual
+            const headerRow = document.createElement('tr');
+            const headers = ["Nombre del Agente", "Nombre del Cliente", "Resultado", "Fecha de Próxima Gestión", "Identidad"];
+
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                headerRow.appendChild(th);
+            });
+
+            tableHeader.appendChild(headerRow);
+        }
+
+        // Función para llenar los filtros de Agente y Resultado
+        function populateFilters() {
+            // Llenar los agentes en el filtro
+            const agentFilter = document.getElementById('agentFilter');
+            const uniqueAgents = [...new Set(agentResults.map(row => row.name))];
+            agentFilter.innerHTML = '<option value="">--Seleccionar--</option>';
+            uniqueAgents.forEach(agent => {
+                const option = document.createElement('option');
+                option.value = agent;
+                option.textContent = agent;
+                agentFilter.appendChild(option);
+            });
+
+            // Llenar los resultados en el filtro
+            const resultFilter = document.getElementById('resultFilter');
+            const uniqueResults = [...new Set(agentResults.map(row => row.result))];
+            resultFilter.innerHTML = '<option value="">--Seleccionar--</option>';
+            uniqueResults.forEach(result => {
+                const option = document.createElement('option');
+                option.value = result;
+                option.textContent = result;
+                resultFilter.appendChild(option);
+            });
+        }
+
+        // Función para aplicar los filtros y mostrar los datos filtrados
+        function applyFilters() {
+            let filteredData = agentResults;
+
+            // Filtro por Agente
+            const agentFilter = document.getElementById('agentFilter').value;
+            if (agentFilter) {
+                filteredData = filteredData.filter(row => row.name === agentFilter);
+            }
+
+            // Filtro por Resultado
+            const resultFilter = document.getElementById('resultFilter').value;
+            if (resultFilter) {
+                filteredData = filteredData.filter(row => row.result === resultFilter);
+            }
+
+            // Filtro por Fecha de Revisión
+            const reviewDateFilter = document.getElementById('reviewDateFilter').value;
+            if (reviewDateFilter) {
+                filteredData = filteredData.filter(row => row.reviewDate === reviewDateFilter);
+            }
+
+            // Mostrar solo los primeros datos si estamos en Modo Gestión
+            if (isGestionMode && filteredData.length > 0) {
+                filteredData = [filteredData[currentIndex]];
+            }
+
+            displayData(filteredData);  // Mostrar los datos filtrados
+        }
+
+        // Función para mostrar los datos filtrados en la tabla
+        function displayData(data) {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+
+            if (data.length === 0) {
+                const row = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 5;
+                td.textContent = 'No se encontraron datos';
+                row.appendChild(td);
+                tableBody.appendChild(row);
+                return;
+            }
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                const td1 = document.createElement('td');
+                td1.textContent = row.name;
+                const td2 = document.createElement('td');
+                td2.textContent = row.clientName;
+                const td3 = document.createElement('td');
+                td3.textContent = row.result;
+                const td4 = document.createElement('td');
+                td4.textContent = row.reviewDate;
+                const td5 = document.createElement('td');
+                td5.textContent = row.identity;
+
+                tr.appendChild(td1);
+                tr.appendChild(td2);
+                tr.appendChild(td3);
+                tr.appendChild(td4);
+                tr.appendChild(td5);
+
+                tableBody.appendChild(tr);
+            });
+        }
+    </script>
+</body>
+</html>
